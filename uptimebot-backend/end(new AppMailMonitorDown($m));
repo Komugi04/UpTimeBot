@@ -1,0 +1,21 @@
+[90m= [39m[34;4mApp\Models\Monitor[39;24m {#6088
+    [34mid[39m: [35m21[39m,
+    [34muser_id[39m: [35m23[39m,
+    [34mname[39m: "[32m1Server[39m",
+    [34murl[39m: "[32mhttp://localhost:3001[39m",
+    [34mcheck_interval_seconds[39m: [35m2[39m,
+    [34mcheck_ssl[39m: [35m1[39m,
+    [34mssl_expires_at[39m: [36mnull[39m,
+    [34mssl_issuer[39m: [36mnull[39m,
+    [34mssl_days_remaining[39m: [36mnull[39m,
+    [34mssl_last_checked_at[39m: [36mnull[39m,
+    [34mis_active[39m: [35m1[39m,
+    [34mlast_status[39m: "[32mdown[39m",
+    [34mlast_checked_at[39m: "[32m2026-02-22 16:03:05[39m",
+    [34mlast_response_time_ms[39m: [35m2[39m,
+    [34mlast_http_code[39m: [36mnull[39m,
+    [34muptime_percentage[39m: "[32m22.22[39m",
+    [34mcreated_at[39m: "[32m2026-02-22 03:30:31[39m",
+    [34mupdated_at[39m: "[32m2026-02-22 16:03:05[39m",
+  }
+
