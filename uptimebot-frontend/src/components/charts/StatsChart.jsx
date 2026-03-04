@@ -1,7 +1,4 @@
-import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer,
-} from 'recharts';
+import { Suspense, lazy, useMemo } from 'react';
 
 const PERIODS = [
   { value: 'hour',  label: 'Hour' },
@@ -37,8 +34,33 @@ const CustomActiveDot = ({ cx, cy, color }) => (
   </g>
 );
 
-export default function StatsChart({ title, data, color = '#10b981', period, onPeriodChange, unit = 'incidents' }) {
-  const gId = `sc-${color.replace('#', '')}`;
+/**
+ * ✅ Lazy loaded chart renderer so recharts is NOT pulled into the initial bundle.
+ * This imports recharts only when StatsChart actually renders.
+ */
+const ChartRenderer = lazy(() => import('./StatsChart.recharts.jsx'));
+
+function ChartSkeleton({ color }) {
+  return (
+    <div style={{ height: 280, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ display: 'flex', gap: 3, alignItems: 'flex-end', opacity: 0.25 }}>
+        {[20, 35, 15, 45, 25, 40, 30].map((h, i) => (
+          <div key={i} style={{ width: 6, height: h, borderRadius: '3px 3px 0 0', background: color }} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default function StatsChart({
+  title,
+  data,
+  color = '#10b981',
+  period,
+  onPeriodChange,
+  unit = 'incidents',
+}) {
+  const gId = useMemo(() => `sc-${color.replace('#', '')}`, [color]);
 
   return (
     <div style={{
@@ -74,13 +96,17 @@ export default function StatsChart({ title, data, color = '#10b981', period, onP
           borderRadius: 10, padding: 3,
         }}>
           {PERIODS.map(p => (
-            <button key={p.value} onClick={() => onPeriodChange(p.value)} style={{
-              padding: '4px 10px', borderRadius: 7, border: 'none', cursor: 'pointer',
-              fontSize: 11, fontWeight: 700, transition: 'all .2s',
-              background: period === p.value ? color : 'transparent',
-              color:      period === p.value ? (color === '#ef4444' ? '#fff' : '#000') : '#4b5563',
-              boxShadow:  period === p.value ? `0 0 14px ${color}70` : 'none',
-            }}>
+            <button
+              key={p.value}
+              onClick={() => onPeriodChange(p.value)}
+              style={{
+                padding: '4px 10px', borderRadius: 7, border: 'none', cursor: 'pointer',
+                fontSize: 11, fontWeight: 700, transition: 'all .2s',
+                background: period === p.value ? color : 'transparent',
+                color:      period === p.value ? (color === '#ef4444' ? '#fff' : '#000') : '#4b5563',
+                boxShadow:  period === p.value ? `0 0 14px ${color}70` : 'none',
+              }}
+            >
               {p.label}
             </button>
           ))}
@@ -88,30 +114,16 @@ export default function StatsChart({ title, data, color = '#10b981', period, onP
       </div>
 
       {data?.length > 0 ? (
-        <ResponsiveContainer width="100%" height={280}>
-          <AreaChart data={data} margin={{ top: 8, right: 4, left: -24, bottom: 0 }}>
-            <defs>
-              <linearGradient id={gId} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%"   stopColor={color} stopOpacity={0.35} />
-                <stop offset="100%" stopColor={color} stopOpacity={0.01} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid stroke="rgba(255,255,255,0.06)" strokeDasharray="4 4" vertical={false} />
-            <XAxis dataKey="date" tick={{ fill: '#475569', fontSize: 10 }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fill: '#475569', fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
-            <Tooltip content={<CustomTooltip color={color} unit={unit} />} />
-            <Area
-              type="monotone"
-              dataKey="count"
-              stroke={color}
-              strokeWidth={2.5}
-              fill={`url(#${gId})`}
-              dot={false}
-              activeDot={<CustomActiveDot color={color} />}
-              style={{ filter: `drop-shadow(0 0 8px ${color}70)` }}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
+        <Suspense fallback={<ChartSkeleton color={color} />}>
+          <ChartRenderer
+            data={data}
+            color={color}
+            gId={gId}
+            unit={unit}
+            CustomTooltip={CustomTooltip}
+            CustomActiveDot={CustomActiveDot}
+          />
+        </Suspense>
       ) : (
         <div style={{
           height: 280, display: 'flex', flexDirection: 'column',

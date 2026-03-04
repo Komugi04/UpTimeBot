@@ -13,14 +13,18 @@ import api from '../../api/axios';
 import { usePeriodStore } from '../../store/periodStore';
 
 export default function AdminDashboard() {
-  const [stats, setStats] = useState(null);
-  const [monitors, setMonitors] = useState([]);
-  const [incidents, setIncidents] = useState([]);
-  const [incidentStats, setIncidentStats] = useState([]);
+  const [stats, setStats]                   = useState(null);
+  const [monitors, setMonitors]             = useState([]);
+  const [incidents, setIncidents]           = useState([]);
+  const [incidentStats, setIncidentStats]   = useState([]);
   const [incidentsByCause, setIncidentsByCause] = useState([]);
-  const [incidentsByUser, setIncidentsByUser] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [lastUpdated, setLastUpdated] = useState(null);
+  const [incidentsByUser, setIncidentsByUser]   = useState([]);
+  const [loading, setLoading]               = useState(true);
+  const [lastUpdated, setLastUpdated]       = useState(null);
+
+  // ── monitor filter/sort (same as user dashboard) ──
+  const [monitorFilter, setMonitorFilter]   = useState('all');
+  const [monitorSort,   setMonitorSort]     = useState('default');
 
   const navigate = useNavigate();
   const { incidentPeriod, causePeriod, userPeriod, setPeriod } = usePeriodStore();
@@ -39,7 +43,7 @@ export default function AdminDashboard() {
     try {
       const [dashRes, monRes, incRes] = await Promise.all([
         api.get('/admin/dashboard'),
-        api.get('/admin/monitors?per_page=5'),
+        api.get('/admin/monitors?per_page=100'),
         api.get('/admin/incidents?per_page=10'),
       ]);
       setStats(dashRes.data.data);
@@ -56,6 +60,18 @@ export default function AdminDashboard() {
 
   const openCount     = incidents.filter(i => i.status === 'open').length;
   const resolvedCount = incidents.filter(i => i.status === 'resolved').length;
+
+  // ── filtered + sorted monitors for the card ──
+  const activeMonitors = monitors.filter(m => m.is_active !== false);
+  const monitorsForCard = (monitorFilter === 'all' ? monitors : activeMonitors)
+    .slice()
+    .sort((a, b) => {
+      if (monitorSort === 'default') return 0;
+      const rank = (s, upFirst) => { const v = (s||'').toLowerCase(); return upFirst ? (v==='up'?0:1) : (v==='down'?0:1); };
+      const ra = rank(a.last_status, monitorSort === 'asc');
+      const rb = rank(b.last_status, monitorSort === 'asc');
+      return ra !== rb ? ra - rb : (a.name||'').localeCompare(b.name||'');
+    });
 
   const statCards = [
     { label:'Total Users',    value:stats?.total_users||0,    icon:Users,        color:'#3b82f6', link:'/admin/users',               sub:`${stats?.active_users||0} active` },
@@ -150,24 +166,44 @@ export default function AdminDashboard() {
       {/* ── Monitors + Incidents ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
 
-        {/* Recent Monitors */}
+        {/* Recent Monitors — with filter + sort from user dashboard */}
         <div className="rounded-2xl overflow-hidden fu-2"
           style={{background:'linear-gradient(160deg,#0f1623,#111827)',border:'1px solid rgba(255,255,255,0.07)'}}>
           <div className="px-6 py-5 flex items-center justify-between"
             style={{borderBottom:'1px solid rgba(255,255,255,0.06)',background:'rgba(255,255,255,0.015)'}}>
             <div>
               <h2 className="text-white font-bold text-lg leading-none mb-1">Recent Monitors</h2>
-              <p className="text-gray-500 text-xs">{stats?.total_monitors||0} total across all users</p>
+              <p className="text-gray-500 text-xs">
+                {monitorFilter === 'all' ? monitors.length : activeMonitors.length}{' '}
+                {monitorFilter === 'all' ? 'total' : 'active'} monitors
+              </p>
             </div>
-            <Link to="/admin/monitors"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white"
-              style={{background:'linear-gradient(135deg,#059669,#10b981)',boxShadow:'0 0 16px #10b98140'}}>
-              View All <ExternalLink size={11} />
-            </Link>
+            <div className="flex items-center gap-2">
+              {/* Filter: Active / All */}
+              <select value={monitorFilter} onChange={e => setMonitorFilter(e.target.value)}
+                className="px-2.5 py-1.5 text-xs text-gray-300 rounded-lg outline-none cursor-pointer"
+                style={{background:'#1a2232',border:'1px solid rgba(255,255,255,0.1)'}}>
+                <option value="all">All</option>
+                <option value="active">Active</option>
+              </select>
+              {/* Sort: Up first / Down first */}
+              <select value={monitorSort} onChange={e => setMonitorSort(e.target.value)}
+                className="px-2.5 py-1.5 text-xs text-gray-300 rounded-lg outline-none cursor-pointer"
+                style={{background:'#1a2232',border:'1px solid rgba(255,255,255,0.1)'}}>
+                <option value="default">Sort</option>
+                <option value="asc">Up first</option>
+                <option value="desc">Down first</option>
+              </select>
+              <Link to="/admin/monitors"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white"
+                style={{background:'linear-gradient(135deg,#059669,#10b981)',boxShadow:'0 0 16px #10b98140'}}>
+                View All <ExternalLink size={11} />
+              </Link>
+            </div>
           </div>
 
           <div className="p-4 space-y-2.5 max-h-[500px] overflow-y-auto slim">
-            {monitors.length === 0 ? (
+            {monitorsForCard.length === 0 ? (
               <div className="py-16 text-center">
                 <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
                   style={{background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.08)'}}>
@@ -175,7 +211,7 @@ export default function AdminDashboard() {
                 </div>
                 <p className="text-gray-300 font-semibold text-sm">No monitors found</p>
               </div>
-            ) : monitors.slice(0, 5).map(m => {
+            ) : monitorsForCard.map(m => {
               const isUp = m.last_status === 'up';
               const ac   = isUp ? '#10b981' : '#ef4444';
               return (
@@ -243,7 +279,7 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Recent Incidents */}
+        {/* Recent Incidents — with status timeline */}
         <div className="rounded-2xl overflow-hidden fu-3"
           style={{background:'linear-gradient(160deg,#0f1623,#111827)',border:'1px solid rgba(255,255,255,0.07)'}}>
           <div className="px-6 py-5 flex items-center justify-between"
@@ -274,42 +310,81 @@ export default function AdminDashboard() {
                 <p className="text-gray-500 text-xs mt-1">No incidents recorded</p>
               </div>
             ) : incidents.slice(0, 10).map(inc => {
-              const isOpen = inc.status === 'open';
-              const ac     = isOpen ? '#ef4444' : '#10b981';
+              const isOpen      = inc.status === 'open';
+              const borderColor = isOpen ? 'rgba(239,68,68,0.2)' : 'rgba(16,185,129,0.14)';
+              const bgColor     = isOpen ? 'rgba(239,68,68,0.05)' : 'rgba(16,185,129,0.04)';
+              const bgHover     = isOpen ? 'rgba(239,68,68,0.09)' : 'rgba(16,185,129,0.08)';
+              const borderHover = isOpen ? 'rgba(239,68,68,0.4)' : 'rgba(16,185,129,0.3)';
               return (
                 <div key={inc.id}
                   onClick={() => navigate(`/admin/incidents?monitor=${inc.monitor_id}&highlight=${inc.id}`)}
                   className="irow relative rounded-xl p-4 cursor-pointer"
-                  style={{background:isOpen?'rgba(239,68,68,0.05)':'rgba(16,185,129,0.04)',border:`1px solid ${isOpen?'rgba(239,68,68,0.2)':'rgba(16,185,129,0.14)'}`}}
-                  onMouseEnter={e=>{e.currentTarget.style.background=isOpen?'rgba(239,68,68,0.09)':'rgba(16,185,129,0.08)';e.currentTarget.style.borderColor=isOpen?'rgba(239,68,68,0.4)':'rgba(16,185,129,0.3)';}}
-                  onMouseLeave={e=>{e.currentTarget.style.background=isOpen?'rgba(239,68,68,0.05)':'rgba(16,185,129,0.04)';e.currentTarget.style.borderColor=isOpen?'rgba(239,68,68,0.2)':'rgba(16,185,129,0.14)';}}
+                  style={{background:bgColor, border:`1px solid ${borderColor}`}}
+                  onMouseEnter={e=>{e.currentTarget.style.background=bgHover;e.currentTarget.style.borderColor=borderHover;}}
+                  onMouseLeave={e=>{e.currentTarget.style.background=bgColor;e.currentTarget.style.borderColor=borderColor;}}
                 >
+                  {/* Left accent bar always red — OPEN origin */}
                   <div className="absolute left-0 top-3 bottom-3 w-0.5 rounded-r"
-                    style={{background:ac,boxShadow:`0 0 6px ${ac}`}} />
+                    style={{background:'#ef4444', boxShadow:'0 0 6px #ef4444'}} />
+
                   <div className="flex items-start gap-3">
-                    <div className="p-2 rounded-xl flex-shrink-0" style={{background:`${ac}15`,border:`1px solid ${ac}22`}}>
-                      {isOpen ? <AlertCircle size={16} color={ac}/> : <Activity size={16} color={ac}/>}
+                    <div className="p-2 rounded-xl flex-shrink-0"
+                      style={{background:'rgba(239,68,68,0.15)',border:'1px solid rgba(239,68,68,0.22)'}}>
+                      <AlertCircle size={16} color="#ef4444"/>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-2 flex-wrap">
-                        <h3 className="text-white font-semibold text-sm truncate">{inc.monitor?.name}</h3>
-                        <span className="text-xs px-2 py-0.5 rounded-full font-semibold flex-shrink-0"
-                          style={{background:`${ac}18`,color:ac,border:`1px solid ${ac}30`}}>
-                          {inc.status.toUpperCase()}
-                        </span>
-                      </div>
+                      <h3 className="text-white font-semibold text-sm truncate mb-1">{inc.monitor?.name}</h3>
                       {inc.monitor?.user?.name && (
-                        <p className="text-gray-600 text-xs mb-1 flex items-center gap-1"><Users size={9}/>{inc.monitor.user.name}</p>
+                        <p className="text-gray-600 text-xs mb-2 flex items-center gap-1">
+                          <Users size={9}/>{inc.monitor.user.name}
+                        </p>
                       )}
-                      <div className="space-y-1 text-xs">
-                        <p className="text-gray-500 flex items-center gap-1.5"><Clock size={10} className="text-gray-600"/>{new Date(inc.started_at).toLocaleString()}</p>
-                        {inc.resolved_at && <p className="text-emerald-400 flex items-center gap-1.5"><Activity size={10}/>Resolved: {new Date(inc.resolved_at).toLocaleString()}</p>}
-                        {inc.down_duration_seconds && (
-                          <p className="text-amber-400 font-semibold flex items-center gap-1.5">
-                            <Zap size={10}/>{Math.floor(inc.down_duration_seconds/60)}m {inc.down_duration_seconds%60}s downtime
-                          </p>
+
+                      {/* Status timeline: OPEN always shown, RESOLVED appended when done */}
+                      <div className="flex flex-col gap-0 text-xs">
+
+                        {/* OPEN — always visible */}
+                        <div className="flex items-start gap-2">
+                          <div className="flex flex-col items-center pt-0.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0"
+                              style={{boxShadow:'0 0 4px #f87171'}}/>
+                            {!isOpen && <div className="w-px bg-gray-700 mt-0.5" style={{height:'16px'}}/>}
+                          </div>
+                          <div className="pb-1">
+                            <span className="font-bold text-red-400">OPEN</span>
+                            <p className="text-gray-500 flex items-center gap-1 mt-0.5">
+                              <Clock size={9} className="text-gray-600"/>
+                              {new Date(inc.started_at).toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* RESOLVED — only appears once resolved */}
+                        {!isOpen && (
+                          <div className="flex items-start gap-2">
+                            <div className="pt-0.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0 block"
+                                style={{boxShadow:'0 0 4px #34d399'}}/>
+                            </div>
+                            <div>
+                              <span className="font-bold text-emerald-400">RESOLVED</span>
+                              {inc.resolved_at && (
+                                <p className="text-gray-500 flex items-center gap-1 mt-0.5">
+                                  <Activity size={9} className="text-gray-600"/>
+                                  {new Date(inc.resolved_at).toLocaleString()}
+                                </p>
+                              )}
+                            </div>
+                          </div>
                         )}
                       </div>
+
+                      {/* Duration */}
+                      {inc.down_duration_seconds && (
+                        <p className="text-amber-400 font-semibold flex items-center gap-1.5 mt-1.5 text-xs">
+                          <Zap size={10}/>{Math.floor(inc.down_duration_seconds/60)}m {inc.down_duration_seconds%60}s downtime
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -319,7 +394,7 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* ── Charts — bigger, full width rows ── */}
+      {/* ── Charts ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 fu-4">
         <PieChart
           title="Incidents by Cause"

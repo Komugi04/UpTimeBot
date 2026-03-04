@@ -6,14 +6,27 @@ import { login } from '../../api/authApi';
 import { useAuthStore } from '../../store/authStore';
 import Logo from '../../components/shared/Logo';
 
+function pickLaravelError(err, fallback = 'Something went wrong') {
+  const data = err?.response?.data;
+
+  // If Laravel ValidationException returns: { message, errors: { field: [msg] } }
+  if (data?.errors && typeof data.errors === 'object') {
+    const firstField = Object.keys(data.errors)[0];
+    const firstMsg = data.errors[firstField]?.[0];
+    if (firstMsg) return firstMsg;
+  }
+
+  return data?.message || fallback;
+}
+
 export default function Login() {
   const navigate = useNavigate();
   const setAuth = useAuthStore(s => s.setAuth);
+
   const [loading, setLoading] = useState(false);
   const [showPasswordField, setShowPasswordField] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // ← Use plain useState instead of react-hook-form to avoid uncontrolled/controlled conflict
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
@@ -25,24 +38,48 @@ export default function Login() {
 
     setLoading(true);
     try {
-      const res = await login({ email, password: '' });
+      // ✅ email-only probe (do not send empty password)
+      const res = await login({ email });
 
+      // OTP flow
       if (res.data.requires_otp) {
-        toast.success(res.data.message);
+        toast.success(res.data.message || 'OTP sent to your email');
         navigate('/verify-otp', { state: { email } });
-      } else if (res.data.token) {
+        return;
+      }
+
+      // Logged in (admin OR user w/ password and backend accepted without OTP)
+      if (res.data.token && res.data.user) {
         setAuth(res.data.user, res.data.token);
         toast.success('Welcome back!');
         navigate(res.data.user.role === 'admin' ? '/admin/dashboard' : '/user/dashboard');
+        return;
       }
+
+      // If backend responds but doesn't return token/otp (rare)
+      setShowPasswordField(true);
     } catch (err) {
-      if (err.response?.status === 422 && err.response?.data?.message?.includes('Password required')) {
+      const status = err?.response?.status;
+      const msg = pickLaravelError(err, 'Login failed');
+
+      // If backend says password required, show password form
+      // (Your controller returns: "Password required..." with 422)
+      if (status === 422 && /password required/i.test(msg)) {
         setShowPasswordField(true);
-      } else if (err.response?.status === 404) {
-        toast.error('Email not registered. Contact administrator.');
-      } else {
-        toast.error(err.response?.data?.message || 'Login failed');
+        return;
       }
+
+      if (status === 404) {
+        toast.error('Email not found. Please contact administrator.');
+        return;
+      }
+
+      if (status === 403) {
+        toast.error(msg || 'Your account has been disabled.');
+        return;
+      }
+
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -50,17 +87,40 @@ export default function Login() {
 
   const onSubmitWithPassword = async (e) => {
     e.preventDefault();
+
+    if (!email || !email.includes('@')) {
+      toast.error('Please enter a valid email');
+      return;
+    }
+    if (!password) {
+      toast.error('Please enter your password');
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await login({ email, password });
+
+      if (res.data.requires_otp) {
+        toast.success(res.data.message || 'OTP sent to your email');
+        navigate('/verify-otp', { state: { email } });
+        return;
+      }
+
       setAuth(res.data.user, res.data.token);
       toast.success('Welcome back!');
       navigate(res.data.user.role === 'admin' ? '/admin/dashboard' : '/user/dashboard');
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Invalid credentials');
+      toast.error(pickLaravelError(err, 'Invalid credentials'));
     } finally {
       setLoading(false);
     }
+  };
+
+  const backToEmail = () => {
+    setShowPasswordField(false);
+    setPassword('');
+    setShowPassword(false);
   };
 
   return (
@@ -70,21 +130,29 @@ export default function Login() {
           <Logo size="large" />
           <h1 className="text-white text-2xl font-bold">ServerSentinel</h1>
         </div>
+
         <h2 className="text-gray-300 text-lg mb-6">Sign in</h2>
 
         {!showPasswordField ? (
-          <form onSubmit={(e) => { e.preventDefault(); checkEmail(); }} className="space-y-4">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              checkEmail();
+            }}
+            className="space-y-4"
+          >
             <div>
               <label className="text-gray-400 text-sm">Email</label>
               <input
                 type="email"
-                value={email}                          // ← always a defined string
+                value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 placeholder="your.email@gmail.com"
                 className="w-full mt-1 px-4 py-2 bg-gray-800 text-white rounded-lg border border-gray-700 focus:border-green-500 outline-none"
               />
             </div>
+
             <button
               type="submit"
               disabled={loading}
@@ -99,17 +167,18 @@ export default function Login() {
               <label className="text-gray-400 text-sm">Email</label>
               <input
                 type="email"
-                value={email}                          // ← always a defined string
+                value={email}
                 readOnly
                 className="w-full mt-1 px-4 py-2 bg-gray-800 text-white rounded-lg border border-gray-700 outline-none opacity-75"
               />
             </div>
+
             <div>
               <label className="text-gray-400 text-sm">Password</label>
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
-                  value={password}                     // ← always a defined string
+                  value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   autoFocus
@@ -124,6 +193,7 @@ export default function Login() {
                 </button>
               </div>
             </div>
+
             <button
               type="submit"
               disabled={loading}
@@ -131,9 +201,10 @@ export default function Login() {
             >
               {loading ? 'Signing in...' : 'Login'}
             </button>
+
             <button
               type="button"
-              onClick={() => { setShowPasswordField(false); setPassword(''); }}
+              onClick={backToEmail}
               className="w-full text-sm text-gray-400 hover:text-green-400 transition"
             >
               ← Back to email
@@ -142,7 +213,7 @@ export default function Login() {
         )}
 
         <div className="mt-6 text-center text-gray-500 text-sm">
-          <p>First time? Enter email to receive setup link</p>
+          <p>First time? Enter email to receive OTP</p>
           <p className="mt-1">Already registered? Use your password</p>
         </div>
       </div>

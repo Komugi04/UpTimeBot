@@ -42,6 +42,7 @@ class AuthController extends Controller
                 throw ValidationException::withMessages(['password' => 'Invalid password.']);
             }
 
+            $user->markOnline();
             $token = $this->createToken($user); // ← uses helper with expiry
 
             return response()->json([
@@ -78,6 +79,7 @@ class AuthController extends Controller
                 throw ValidationException::withMessages(['password' => 'Invalid password.']);
             }
 
+            $user->markOnline();
             $token = $this->createToken($user); // ← uses helper with expiry
 
             return response()->json([
@@ -123,6 +125,7 @@ class AuthController extends Controller
             'email_verified_at' => now(),
         ]);
 
+        $user->markOnline();
         $token = $this->createToken($user); // ← uses helper with expiry
 
         return response()->json([
@@ -145,6 +148,7 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
+        $request->user()->markOffline();
         $request->user()->currentAccessToken()->delete();
         return response()->json(['message' => 'Logged out successfully.']);
     }

@@ -1,5 +1,3 @@
-import { motion, AnimatePresence } from 'framer-motion';
-
 const config = {
   up: {
     label: 'UP',
@@ -29,20 +27,29 @@ export default function StatusBadge({ status }) {
   const c = config[s] || config.unknown;
 
   return (
-    <AnimatePresence mode="wait">
-      <motion.span
-        key={status}
-        initial={{ scale: 0.8, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.8, opacity: 0 }}
-        className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold ${c.bg} ${c.text}`}
-      >
-        <span className="relative flex h-2.5 w-2.5">
-          <span className={`absolute inline-flex h-full w-full rounded-full opacity-75 ${c.dot} ${c.animation}`} />
-          <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${c.dot}`} />
-        </span>
-        {c.label}
-      </motion.span>
-    </AnimatePresence>
+    <span
+      // key helps React re-render when status changes (for transition)
+      key={s}
+      className={[
+        'inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold',
+        'transition-all duration-200 ease-out',
+        'scale-100 opacity-100',
+        c.bg,
+        c.text,
+      ].join(' ')}
+    >
+      <span className="relative flex h-2.5 w-2.5">
+        <span
+          className={[
+            'absolute inline-flex h-full w-full rounded-full opacity-75',
+            c.dot,
+            c.animation,
+          ].join(' ')}
+        />
+        <span className={['relative inline-flex rounded-full h-2.5 w-2.5', c.dot].join(' ')} />
+      </span>
+
+      {c.label}
+    </span>
   );
 }

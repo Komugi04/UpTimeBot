@@ -16,7 +16,6 @@ function generateRootCause(incident) {
   const code = http_status_code;
 
   if (error_type === 'http_error' && code) {
-    // 4xx Client Errors
     if (code === 400) return 'The server received a malformed or invalid request, likely due to bad parameters or request formatting issues.';
     if (code === 401) return 'The request was rejected due to missing or invalid authentication credentials.';
     if (code === 403) return 'Access to the resource was denied, possibly due to permission restrictions or IP-based blocking on the server.';
@@ -27,8 +26,6 @@ function generateRootCause(incident) {
     if (code === 410) return 'The requested resource has been permanently removed from the server.';
     if (code === 429) return 'The service is rate-limiting requests due to excessive traffic. Request throttling or backoff should be applied.';
     if (code >= 400 && code < 500) return `A client-side error occurred (HTTP ${code}). The request may be malformed, unauthorized, or targeting a non-existent resource.`;
-
-    // 5xx Server Errors
     if (code === 500) return 'The server encountered an internal error, likely caused by an unhandled exception or application-side bug.';
     if (code === 501) return 'The server does not support the functionality required to fulfill the request.';
     if (code === 502) return 'The upstream server or proxy returned an invalid response. This is typically caused by a misconfigured gateway or a crashed backend service.';
@@ -38,21 +35,10 @@ function generateRootCause(incident) {
     if (code >= 500) return `A server-side error occurred (HTTP ${code}). The service failed to process the request due to an internal issue.`;
   }
 
-  if (error_type === 'timeout') {
-    return 'The service did not respond within the expected time limit. This is typically caused by high server load, network congestion, or an unresponsive backend process.';
-  }
-
-  if (error_type === 'connection') {
-    return 'A connection to the server could not be established. The host may be down, unreachable, or actively blocking incoming connections.';
-  }
-
-  if (error_type === 'dns') {
-    return 'DNS resolution failed for the monitored domain. The domain may be misconfigured, expired, or the DNS server may be unreachable.';
-  }
-
-  if (error_type === 'ssl') {
-    return 'An SSL/TLS handshake error occurred. The certificate may be expired, self-signed, revoked, or the server may have an incompatible TLS configuration.';
-  }
+  if (error_type === 'timeout') return 'The service did not respond within the expected time limit. This is typically caused by high server load, network congestion, or an unresponsive backend process.';
+  if (error_type === 'connection') return 'A connection to the server could not be established. The host may be down, unreachable, or actively blocking incoming connections.';
+  if (error_type === 'dns') return 'DNS resolution failed for the monitored domain. The domain may be misconfigured, expired, or the DNS server may be unreachable.';
+  if (error_type === 'ssl') return 'An SSL/TLS handshake error occurred. The certificate may be expired, self-signed, revoked, or the server may have an incompatible TLS configuration.';
 
   return 'An unexpected error occurred during monitoring. Further investigation of server logs and network conditions is recommended to determine the root cause.';
 }
@@ -137,6 +123,60 @@ function RootCauseCell({ incident, onSaved }) {
   );
 }
 
+// ─── Status Timeline Cell ─────────────────────────────────────────────────────
+// Every incident ALWAYS shows the OPEN status with its start time.
+// When it gets resolved, the RESOLVED status is appended below it with a
+// connecting line — so the full lifecycle is always visible in the report.
+function StatusTimelineCell({ incident }) {
+  const isResolved = incident.status === 'resolved';
+
+  return (
+    <div className="flex flex-col gap-0 min-w-[150px]">
+
+      {/* ── OPEN marker — always shown ── */}
+      <div className="flex items-start gap-2">
+        <div className="flex flex-col items-center">
+          <span className="w-2 h-2 rounded-full bg-red-400 mt-1 flex-shrink-0"
+            style={{ boxShadow: '0 0 5px #f87171' }} />
+          {isResolved && (
+            <div className="w-px flex-1 bg-gray-700 mt-0.5" style={{ minHeight: '18px' }} />
+          )}
+        </div>
+        <div className="pb-1">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-500/20 text-red-400">
+            OPEN
+          </span>
+          {incident.started_at && (
+            <p className="text-[10px] text-gray-600 mt-0.5 leading-tight">
+              {new Date(incident.started_at).toLocaleString()}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* ── RESOLVED marker — only shown once it's resolved ── */}
+      {isResolved && (
+        <div className="flex items-start gap-2">
+          <div className="flex flex-col items-center">
+            <span className="w-2 h-2 rounded-full bg-green-400 mt-1 flex-shrink-0"
+              style={{ boxShadow: '0 0 5px #34d399' }} />
+          </div>
+          <div>
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-500/20 text-green-400">
+              RESOLVED
+            </span>
+            {incident.resolved_at && (
+              <p className="text-[10px] text-gray-600 mt-0.5 leading-tight">
+                {new Date(incident.resolved_at).toLocaleString()}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function AdminIncidents() {
   const [incidents, setIncidents]         = useState([]);
@@ -153,9 +193,6 @@ export default function AdminIncidents() {
     return () => clearInterval(interval);
   }, []);
 
-  // ─── Auto Root Cause Fill ────────────────────────────────────────────────────
-  // Runs silently after each fetch. For every incident missing a root_cause,
-  // it generates one using the rule engine and persists it via the API.
   const autoFillRootCauses = async (data) => {
     const missing = data.filter(i => !i.root_cause);
     if (missing.length === 0) return data;
@@ -168,7 +205,6 @@ export default function AdminIncidents() {
       })
     );
 
-    // Merge auto-generated root causes back into data array
     const filled = { ...Object.fromEntries(data.map(i => [i.id, i])) };
     results.forEach(result => {
       if (result.status === 'fulfilled') {
@@ -184,8 +220,6 @@ export default function AdminIncidents() {
     try {
       const res  = await api.get('/admin/incidents');
       const data = res.data.data || [];
-
-      // Auto-fill missing root causes before setting state
       const enriched = await autoFillRootCauses(data);
       setIncidents(enriched);
     } catch (err) {
@@ -195,7 +229,6 @@ export default function AdminIncidents() {
     }
   };
 
-  // Patch a single incident's root_cause in local state without re-fetching
   const handleRootCauseSaved = (id, rootCause) => {
     setIncidents(prev =>
       prev.map(inc => inc.id === id ? { ...inc, root_cause: rootCause } : inc)
@@ -234,21 +267,11 @@ export default function AdminIncidents() {
   const periodLabels = { hour: 'Last Hour', day: 'Last 24 Hours', week: 'Last Week', month: 'Last Month' };
   const reportTitles = { hour: 'Hourly Incident Report', day: 'Daily Incident Report', week: 'Weekly Incident Report', month: 'Monthly Incident Report' };
 
+  // Filter works on current status, but the row still shows full history
   const tableRows = useMemo(() => {
     if (statusFilter === 'all') return incidents;
     return incidents.filter(i => i.status === statusFilter);
   }, [incidents, statusFilter]);
-
-  const getFilteredByPeriod = (items) => {
-    const now = new Date();
-    const cutoffs = {
-      hour:  new Date(now - 1 * 60 * 60 * 1000),
-      day:   new Date(now - 24 * 60 * 60 * 1000),
-      week:  new Date(now - 7 * 24 * 60 * 60 * 1000),
-      month: new Date(now - 30 * 24 * 60 * 60 * 1000),
-    };
-    return items.filter(i => new Date(i.started_at) >= cutoffs[exportPeriod]);
-  };
 
   const totalPages = Math.max(1, Math.ceil(tableRows.length / PAGE_SIZE));
   const safePage   = Math.min(page, totalPages);
@@ -334,7 +357,6 @@ export default function AdminIncidents() {
         y += 6;
       };
 
-      // Cover
       doc.setFillColor(...GREEN);
       doc.rect(0, 0, pageW, 38, 'F');
       doc.setFontSize(20); doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255);
@@ -369,14 +391,15 @@ export default function AdminIncidents() {
       section(2, 'Full Incident Log');
       autoTable(doc, {
         startY: y,
-        head: [['Monitor','User','Status','Cause','Root Cause','Started','Duration']],
+        head: [['Monitor','User','Opened At','Resolved At','Status','Cause','Root Cause','Duration']],
         body: data.map(i => [
           i.monitor?.name||'N/A',
           i.monitor?.user?.name||'N/A',
+          i.started_at ? new Date(i.started_at).toLocaleString() : '—',
+          i.resolved_at ? new Date(i.resolved_at).toLocaleString() : 'Still Open',
           i.status.toUpperCase(),
           getErrorTypeLabel(i.error_type),
           i.root_cause || '—',
-          i.started_at ? new Date(i.started_at).toLocaleString() : '—',
           i.status==='open' ? 'Ongoing' : (i.down_duration_seconds ? formatDurationSecs(i.down_duration_seconds) : 'N/A'),
         ]),
         theme: 'grid',
@@ -384,7 +407,7 @@ export default function AdminIncidents() {
         bodyStyles: { fontSize:7.5, textColor:BLACK },
         alternateRowStyles: { fillColor:LGRAY },
         margin: { left:14, right:14 },
-        columnStyles: { 4: { cellWidth: 35 } },
+        columnStyles: { 6: { cellWidth: 35 } },
       });
 
       y = doc.lastAutoTable.finalY + 8;
@@ -543,13 +566,12 @@ export default function AdminIncidents() {
                     <div className="text-white">{incident.monitor?.user?.name || 'N/A'}</div>
                     <div className="text-xs text-gray-500">{incident.monitor?.user?.email || ''}</div>
                   </td>
+
+                  {/* Status column: always shows OPEN, and appends RESOLVED below when done */}
                   <td className="px-5 py-4">
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                      incident.status === 'open' ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'
-                    }`}>
-                      {incident.status.toUpperCase()}
-                    </span>
+                    <StatusTimelineCell incident={incident} />
                   </td>
+
                   <td className="px-5 py-4 text-white text-sm">
                     {getErrorTypeLabel(incident.error_type)}
                     {incident.http_status_code && (

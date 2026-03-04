@@ -14,7 +14,7 @@ import { getUserMonitors, getUserIncidents } from '../../api/userApi';
 import api from '../../api/axios';
 import { usePeriodStore } from '../../store/periodStore';
 
-// ── palette & helpers ────────────────────────────────────────────────────────
+// ── palette & helpers ─────────────────────────────────────────────────────────
 const PALETTE = ['#10b981','#3b82f6','#8b5cf6','#f59e0b','#ef4444','#06b6d4','#ec4899'];
 
 const MonitorTooltip = ({ active, payload, label }) => {
@@ -56,28 +56,22 @@ const RoundBar = ({ x, y, width, height, color }) => {
   );
 };
 
-// ── same upright tick as BarChart.jsx ────────────────────────────────────────
 const CustomXTick = ({ x, y, payload }) => (
   <g transform={`translate(${x},${y})`}>
-    <text
-      x={0} y={0} dy={14}
-      textAnchor="middle"
-      fill="#475569"
-      fontSize={11}
-    >
+    <text x={0} y={0} dy={14} textAnchor="middle" fill="#475569" fontSize={11}>
       {payload.value?.length > 12 ? payload.value.slice(0, 12) + '…' : payload.value}
     </text>
   </g>
 );
 
 const PERIODS = [
-  { value: 'hour',  label: 'Hour' },
-  { value: 'day',   label: '24h'  },
-  { value: 'week',  label: 'Week' },
-  { value: 'month', label: 'Month'},
+  { value: 'hour',  label: 'Hour'  },
+  { value: 'day',   label: '24h'   },
+  { value: 'week',  label: 'Week'  },
+  { value: 'month', label: 'Month' },
 ];
 
-// ── Incidents by Monitor chart ───────────────────────────────────────────────
+// ── Incidents by Monitor chart ────────────────────────────────────────────────
 function IncidentsByMonitorChart({ incidents, period, onPeriodChange }) {
   const cutoffs = {
     hour:  new Date(Date.now() - 1   * 3600 * 1000),
@@ -89,10 +83,7 @@ function IncidentsByMonitorChart({ incidents, period, onPeriodChange }) {
   const chartData = useMemo(() => {
     const filtered = incidents.filter(i => new Date(i.started_at) >= cutoffs[period]);
     const map = {};
-    filtered.forEach(i => {
-      const name = i.monitor?.name || 'Unknown';
-      map[name] = (map[name] || 0) + 1;
-    });
+    filtered.forEach(i => { const name = i.monitor?.name || 'Unknown'; map[name] = (map[name] || 0) + 1; });
     return Object.entries(map)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 7)
@@ -103,10 +94,8 @@ function IncidentsByMonitorChart({ incidents, period, onPeriodChange }) {
     <div style={{
       background: 'linear-gradient(160deg, #0f1623 0%, #111827 100%)',
       border: '1px solid rgba(255,255,255,0.08)',
-      borderRadius: 20,
-      padding: '22px 22px 20px',
-      position: 'relative',
-      overflow: 'hidden',
+      borderRadius: 20, padding: '22px 22px 20px',
+      position: 'relative', overflow: 'hidden',
     }}>
       <div style={{
         position: 'absolute', bottom: -20, left: '50%', transform: 'translateX(-50%)',
@@ -114,21 +103,12 @@ function IncidentsByMonitorChart({ incidents, period, onPeriodChange }) {
         background: 'radial-gradient(ellipse, #10b98115 0%, transparent 70%)',
         pointerEvents: 'none',
       }} />
-
-      {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
         <div>
-          <p style={{ color: '#334155', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 4 }}>
-            BREAKDOWN
-          </p>
+          <p style={{ color: '#334155', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 4 }}>BREAKDOWN</p>
           <h3 style={{ color: '#e2e8f0', fontSize: 15, fontWeight: 700, margin: 0 }}>Incidents by Monitor</h3>
         </div>
-        <div style={{
-          display: 'flex', gap: 2,
-          background: 'rgba(255,255,255,0.05)',
-          border: '1px solid rgba(255,255,255,0.08)',
-          borderRadius: 10, padding: 3,
-        }}>
+        <div style={{ display: 'flex', gap: 2, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: 3 }}>
           {PERIODS.map(p => (
             <button key={p.value} onClick={() => onPeriodChange(p.value)} style={{
               padding: '4px 10px', borderRadius: 7, border: 'none', cursor: 'pointer',
@@ -140,24 +120,12 @@ function IncidentsByMonitorChart({ incidents, period, onPeriodChange }) {
           ))}
         </div>
       </div>
-
       {chartData.length > 0 ? (
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={chartData} margin={{ top: 10, right: 8, left: -20, bottom: 10 }}>
             <CartesianGrid stroke="rgba(255,255,255,0.05)" strokeDasharray="4 4" vertical={false} />
-            <XAxis
-              dataKey="name"
-              tick={<CustomXTick />}
-              axisLine={{ stroke: 'rgba(255,255,255,0.08)' }}
-              tickLine={false}
-              interval={0}
-              height={40}
-            />
-            <YAxis
-              tick={{ fill: '#475569', fontSize: 10 }}
-              axisLine={false} tickLine={false}
-              allowDecimals={false}
-            />
+            <XAxis dataKey="name" tick={<CustomXTick />} axisLine={{ stroke: 'rgba(255,255,255,0.08)' }} tickLine={false} interval={0} height={40} />
+            <YAxis tick={{ fill: '#475569', fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
             <Tooltip content={<MonitorTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
             <Bar dataKey="count" maxBarSize={48}
               shape={(props) => {
@@ -170,10 +138,7 @@ function IncidentsByMonitorChart({ incidents, period, onPeriodChange }) {
           </BarChart>
         </ResponsiveContainer>
       ) : (
-        <div style={{
-          height: 300, display: 'flex', flexDirection: 'column',
-          alignItems: 'center', justifyContent: 'center', gap: 10,
-        }}>
+        <div style={{ height: 300, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
           <div style={{ display: 'flex', gap: 4, alignItems: 'flex-end', opacity: 0.2 }}>
             {[18, 30, 12, 24, 10].map((h, i) => (
               <div key={i} style={{ width: 8, height: h, background: PALETTE[i], borderRadius: '3px 3px 0 0' }} />
@@ -185,6 +150,7 @@ function IncidentsByMonitorChart({ incidents, period, onPeriodChange }) {
     </div>
   );
 }
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function UserDashboard() {
@@ -382,7 +348,7 @@ export default function UserDashboard() {
                 <p className="text-gray-300 font-semibold text-sm">No monitors assigned yet</p>
                 <p className="text-gray-600 text-xs mt-1">Contact your admin to get started</p>
               </div>
-            ) : monitorsForCard.slice(0, 5).map(m => {
+            ) : monitorsForCard.map(m => {
               const isUp = m.last_status === 'up';
               const ac   = isUp ? '#10b981' : '#ef4444';
               return (
@@ -479,38 +445,75 @@ export default function UserDashboard() {
               </div>
             ) : incidents.slice(0, 10).map(inc => {
               const isOpen = inc.status === 'open';
-              const ac     = isOpen ? '#ef4444' : '#10b981';
+              const borderColor = isOpen ? 'rgba(239,68,68,0.2)' : 'rgba(16,185,129,0.14)';
+              const bgColor     = isOpen ? 'rgba(239,68,68,0.05)' : 'rgba(16,185,129,0.04)';
+              const bgHover     = isOpen ? 'rgba(239,68,68,0.09)' : 'rgba(16,185,129,0.08)';
+              const borderHover = isOpen ? 'rgba(239,68,68,0.4)' : 'rgba(16,185,129,0.3)';
               return (
                 <div key={inc.id}
                   onClick={() => navigate(`/user/incidents?monitor=${inc.monitor_id}&highlight=${inc.id}`)}
                   className="irow relative rounded-xl p-4 cursor-pointer"
-                  style={{background:isOpen?'rgba(239,68,68,0.05)':'rgba(16,185,129,0.04)',border:`1px solid ${isOpen?'rgba(239,68,68,0.2)':'rgba(16,185,129,0.14)'}`}}
-                  onMouseEnter={e=>{e.currentTarget.style.background=isOpen?'rgba(239,68,68,0.09)':'rgba(16,185,129,0.08)';e.currentTarget.style.borderColor=isOpen?'rgba(239,68,68,0.4)':'rgba(16,185,129,0.3)';}}
-                  onMouseLeave={e=>{e.currentTarget.style.background=isOpen?'rgba(239,68,68,0.05)':'rgba(16,185,129,0.04)';e.currentTarget.style.borderColor=isOpen?'rgba(239,68,68,0.2)':'rgba(16,185,129,0.14)';}}
+                  style={{background:bgColor, border:`1px solid ${borderColor}`}}
+                  onMouseEnter={e=>{e.currentTarget.style.background=bgHover;e.currentTarget.style.borderColor=borderHover;}}
+                  onMouseLeave={e=>{e.currentTarget.style.background=bgColor;e.currentTarget.style.borderColor=borderColor;}}
                 >
+                  {/* Left accent bar always red — OPEN origin */}
                   <div className="absolute left-0 top-3 bottom-3 w-0.5 rounded-r"
-                    style={{background:ac,boxShadow:`0 0 6px ${ac}`}} />
+                    style={{background:'#ef4444', boxShadow:'0 0 6px #ef4444'}} />
+
                   <div className="flex items-start gap-3">
-                    <div className="p-2 rounded-xl flex-shrink-0" style={{background:`${ac}15`,border:`1px solid ${ac}22`}}>
-                      {isOpen ? <AlertCircle size={16} color={ac}/> : <Activity size={16} color={ac}/>}
+                    <div className="p-2 rounded-xl flex-shrink-0"
+                      style={{background:'rgba(239,68,68,0.15)',border:'1px solid rgba(239,68,68,0.22)'}}>
+                      <AlertCircle size={16} color="#ef4444"/>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-2 flex-wrap">
-                        <h3 className="text-white font-semibold text-sm truncate">{inc.monitor?.name}</h3>
-                        <span className="text-xs px-2 py-0.5 rounded-full font-semibold flex-shrink-0"
-                          style={{background:`${ac}18`,color:ac,border:`1px solid ${ac}30`}}>
-                          {inc.status.toUpperCase()}
-                        </span>
-                      </div>
-                      <div className="space-y-1 text-xs">
-                        <p className="text-gray-500 flex items-center gap-1.5"><Clock size={10} className="text-gray-600"/>{new Date(inc.started_at).toLocaleString()}</p>
-                        {inc.resolved_at && <p className="text-emerald-400 flex items-center gap-1.5"><Activity size={10}/>Resolved: {new Date(inc.resolved_at).toLocaleString()}</p>}
-                        {inc.down_duration_seconds && (
-                          <p className="text-amber-400 font-semibold flex items-center gap-1.5">
-                            <Zap size={10}/>{Math.floor(inc.down_duration_seconds/60)}m {inc.down_duration_seconds%60}s downtime
-                          </p>
+                      <h3 className="text-white font-semibold text-sm truncate mb-2">{inc.monitor?.name}</h3>
+
+                      {/* Status timeline: OPEN always shown, RESOLVED appended when done */}
+                      <div className="flex flex-col gap-0 text-xs">
+
+                        {/* OPEN — always visible */}
+                        <div className="flex items-start gap-2">
+                          <div className="flex flex-col items-center pt-0.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0"
+                              style={{boxShadow:'0 0 4px #f87171'}}/>
+                            {!isOpen && <div className="w-px bg-gray-700 mt-0.5" style={{height:'16px'}}/>}
+                          </div>
+                          <div className="pb-1">
+                            <span className="font-bold text-red-400">OPEN</span>
+                            <p className="text-gray-500 flex items-center gap-1 mt-0.5">
+                              <Clock size={9} className="text-gray-600"/>
+                              {new Date(inc.started_at).toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* RESOLVED — only appears once resolved */}
+                        {!isOpen && (
+                          <div className="flex items-start gap-2">
+                            <div className="pt-0.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0 block"
+                                style={{boxShadow:'0 0 4px #34d399'}}/>
+                            </div>
+                            <div>
+                              <span className="font-bold text-emerald-400">RESOLVED</span>
+                              {inc.resolved_at && (
+                                <p className="text-gray-500 flex items-center gap-1 mt-0.5">
+                                  <Activity size={9} className="text-gray-600"/>
+                                  {new Date(inc.resolved_at).toLocaleString()}
+                                </p>
+                              )}
+                            </div>
+                          </div>
                         )}
                       </div>
+
+                      {/* Duration */}
+                      {inc.down_duration_seconds && (
+                        <p className="text-amber-400 font-semibold flex items-center gap-1.5 mt-1.5 text-xs">
+                          <Zap size={10}/>{Math.floor(inc.down_duration_seconds/60)}m {inc.down_duration_seconds%60}s downtime
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
