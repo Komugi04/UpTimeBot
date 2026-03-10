@@ -92,10 +92,8 @@ export default function App() {
               <Route path="/user/vapt/network" element={<div className="p-8 text-white">Network VAPT</div>} />
             </Route>
 
-            {/* System Health — requires 'system_health' permission */}
-            <Route element={<ProtectedRoute permission="system_health" />}>
-              <Route path="/user/system-health" element={<div className="p-8 text-white">System Health</div>} />
-            </Route>
+            {/* System Health — always accessible */}
+            <Route path="/user/system-health" element={<div className="p-8 text-white">System Health</div>} />
           </Route>
         </Route>
 

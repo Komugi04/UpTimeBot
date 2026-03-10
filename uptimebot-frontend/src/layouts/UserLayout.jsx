@@ -108,7 +108,7 @@ export default function UserLayout() {
       icon:       Activity,
       label:      'System Health',
       path:       '/user/system-health',
-      permission: 'system_health',
+      permission: null, // always accessible to all users
     },
   ];
 

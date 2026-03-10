@@ -160,8 +160,8 @@ class AdminController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'permissions'   => 'required|array',
-            'permissions.*' => 'in:monitors,vapt,system_health',
+            'permissions'   => 'present|array',
+            'permissions.*' => 'in:monitors,vapt',
         ]);
 
         if ($validator->fails()) {

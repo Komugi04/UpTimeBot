@@ -21,13 +21,6 @@ const ALL_PERMISSIONS = [
     icon:        Shield,
     color:       'purple',
   },
-  {
-    key:         'system_health',
-    label:       'System Health',
-    description: 'System Health dashboard',
-    icon:        Activity,
-    color:       'orange',
-  },
 ];
 
 const COLOR = {
