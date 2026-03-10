@@ -22,6 +22,7 @@ class User extends Authenticatable
         'otp_code',
         'otp_expires_at',
         'email_verified_at',
+        'permissions',
     ];
 
     protected $hidden = [
@@ -31,9 +32,10 @@ class User extends Authenticatable
 
     protected $casts = [
         'email_verified_at' => 'datetime',
-        'otp_expires_at' => 'datetime',
-        'last_seen_at' => 'datetime',
-        'password' => 'hashed',
+        'otp_expires_at'    => 'datetime',
+        'last_seen_at'      => 'datetime',
+        'password'          => 'hashed',
+        'permissions'       => 'array',
     ];
 
     public function monitors()
@@ -46,10 +48,16 @@ class User extends Authenticatable
         return $this->role === 'admin';
     }
 
+    public function hasPermission(string $permission): bool
+    {
+        if ($this->isAdmin()) return true;
+        return in_array($permission, $this->permissions ?? []);
+    }
+
     public function markOnline()
     {
         $this->update([
-            'is_online' => true,
+            'is_online'    => true,
             'last_seen_at' => now(),
         ]);
     }
